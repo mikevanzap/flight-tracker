@@ -4,4 +4,3 @@ folium
 pandas
 requests
 pymongo
-certifi

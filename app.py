@@ -4,7 +4,6 @@ from streamlit_folium import st_folium
 import requests
 import pandas as pd
 from pymongo import MongoClient
-import certifi
 from datetime import datetime
 
 # BEZPEČNÉ NAČTENÍ HESLA: Streamlit si ho vytáhne ze skrytého nastavení (Secrets)
@@ -12,7 +11,12 @@ MONGO_URI = st.secrets["MONGO_URI"]
 
 @st.cache_resource
 def get_mongo_client():
-    return MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+    # Využíváme standardní TLS konfiguraci bez externích certifikátů
+    return MongoClient(
+        MONGO_URI,
+        tls=True,
+        tlsAllowInvalidCertificates=False
+    )
 
 client = get_mongo_client()
 db = client["flight_tracker"]       
