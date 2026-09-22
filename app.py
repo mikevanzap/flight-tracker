@@ -25,10 +25,14 @@ collection = db["history"]
 def fetch_and_save_to_mongo():
     # Souřadnice oblasti (lamin, lamax, lomin, lomax)
     bbox = {'lamin': 50.0, 'lamax': 50.5, 'lomin': 15.5, 'lomax': 16.2}
-    url = "https://opensky-network.org"
+    
+    # OPRAVA: URL adresa upravená tak, aby params šly striktně na endpoint states/all
+    url = "https://opensky-network.org/api/states/all"
     
     try:
-        res = requests.get(url, params=bbox, timeout=10)
+        # Přidáno ošetření chyb přímo do requests.get
+        res = requests.get(url, params=bbox, timeout=15)
+        
         if res.status_code == 200:
             states = res.json().get("states", [])
             if not states:
@@ -39,9 +43,9 @@ def fetch_and_save_to_mongo():
             for f in states:
                 doc = {
                     "timestamp": datetime.utcnow(),
-                    "icao24": f[0],
+                    "icao24": f[0] if f[0] else "UNKNOWN",
                     "callsign": f[1].strip() if f[1] else "UNKNOWN",
-                    "origin_country": f[2],
+                    "origin_country": f[2] if f[2] else "UNKNOWN",
                     "longitude": f[5],
                     "latitude": f[6],
                     "altitude": f[7],
@@ -51,9 +55,17 @@ def fetch_and_save_to_mongo():
             
             collection.insert_many(documents)
             st.success(f"⚡ Staženo a úspěšně uloženo {len(documents)} letadel do MongoDB Atlas!")
+        
+        elif res.status_code == 429:
+            st.error("⚠️ OpenSky API hlásí přetížení (Rate Limit). Zkuste kliknout znovu za 1-2 minuty.")
+        else:
+            st.error(f"⚠️ OpenSky API vrátilo chybu s kódem: {res.status_code}")
             
+    except requests.exceptions.Timeout:
+        st.warning("⏳ Server OpenSky neodpověděl včas (Timeout). Pravděpodobně je přetížený, zkuste to prosím za chvíli znovu. Mapa níže zobrazuje historii.")
     except Exception as e:
         st.error(f"Chyba při komunikaci s API nebo DB: {e}")
+
 
 # --- WEB rozhraní ---
 st.set_page_config(layout="wide", page_title="Live Flight Tracker")
